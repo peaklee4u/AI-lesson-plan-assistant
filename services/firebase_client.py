@@ -20,19 +20,23 @@ class FirebaseService:
                 if "private_key" in service_account_info:
                     pk = service_account_info["private_key"]
                     if isinstance(pk, str):
-                        # 1. Remove Any trailing/leading whitespace or quotes
-                        pk = pk.strip().strip("'").strip('"')
-                        # 2. Convert literal "\n" strings to real newlines
+                        # 1. First, strip ALL white spaces and hidden characters
+                        pk = pk.strip()
+                        
+                        # 2. Normalize escaped newlines
                         pk = pk.replace("\\n", "\n")
-                        # 3. Ensure it starts and ends correctly
-                        if not pk.startswith("-----BEGIN PRIVATE KEY-----"):
-                            pk = "-----BEGIN PRIVATE KEY-----\n" + pk
-                        if not pk.endswith("-----END PRIVATE KEY-----"):
-                            pk = pk + "\n-----END PRIVATE KEY-----"
+                        
+                        # 3. Aggressive cleanup of tags to prevent duplication
+                        # Remove existing tags first to re-add them cleanly
+                        pk = pk.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").strip()
+                        
+                        # 4. Re-construct the standard PEM format
+                        pk = "-----BEGIN PRIVATE KEY-----\n" + pk + "\n-----END PRIVATE KEY-----\n"
                         
                         service_account_info["private_key"] = pk
                 
                 cred = credentials.Certificate(service_account_info)
+
             elif os.path.exists("firebase-key.json"):
                 cred = credentials.Certificate("firebase-key.json")
             else:
