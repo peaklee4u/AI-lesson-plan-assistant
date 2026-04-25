@@ -140,17 +140,15 @@ class FirebaseService:
         
         # 2. Get the latest feedback
         feedback_ref = doc_ref.collection("feedback").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).stream()
-        feedback_content = "기록 없음"
+        feedback_content = {}
         for fb in feedback_ref:
-            data = fb.to_dict()
-            # Try different possible keys for feedback content
-            feedback_content = data.get("feedback") or data.get("content") or data.get("final_feedback")
-            # If data is a complex dict but we need a string representation
-            if isinstance(feedback_content, dict):
-                feedback_content = json.dumps(feedback_content, indent=2, ensure_ascii=False)
-            elif feedback_content is None:
-                # Fallback: use the whole data if no specific key found
-                feedback_content = str(data)
+            feedback_content = fb.to_dict()
+            # Remove timestamp from UI report data
+            if "generatedAt" in feedback_content:
+                del feedback_content["generatedAt"]
+        
+        if not feedback_content:
+            feedback_content = "기록 없음"
 
         # 3. Get all messages ordered by timestamp
         messages_ref = doc_ref.collection("messages").order_by("timestamp").stream()
