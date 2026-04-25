@@ -3,6 +3,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import uuid
 import os
+import json
 from typing import Optional, Dict, Any, List
 
 from google.cloud import firestore as google_firestore
@@ -141,7 +142,15 @@ class FirebaseService:
         feedback_ref = doc_ref.collection("feedback").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).stream()
         feedback_content = "기록 없음"
         for fb in feedback_ref:
-            feedback_content = fb.to_dict().get("feedback", "기록 없음")
+            data = fb.to_dict()
+            # Try different possible keys for feedback content
+            feedback_content = data.get("feedback") or data.get("content") or data.get("final_feedback")
+            # If data is a complex dict but we need a string representation
+            if isinstance(feedback_content, dict):
+                feedback_content = json.dumps(feedback_content, indent=2, ensure_ascii=False)
+            elif feedback_content is None:
+                # Fallback: use the whole data if no specific key found
+                feedback_content = str(data)
 
         # 3. Get all messages ordered by timestamp
         messages_ref = doc_ref.collection("messages").order_by("timestamp").stream()
