@@ -405,6 +405,49 @@ elif st.session_state.stage == 4:
 
 
 # --- Stage 5: Summary & Exit ---
+def format_feedback_report(feedback_data):
+    """Formats raw feedback dictionary into a beautiful report string."""
+    if isinstance(feedback_data, str):
+        try:
+            # If it's a string from json.dumps, parse it back
+            import json
+            feedback_data = json.loads(feedback_data)
+        except:
+            return feedback_data # Return as is if not JSON
+
+    report = ""
+    
+    # 1. Overall Summary
+    if 'overall_summary' in feedback_data:
+        report += f"### 💡 종합 요약\n{feedback_data['overall_summary']}\n\n"
+    
+    # 2. Strengths
+    if 'strengths' in feedback_data:
+        report += "### ✅ 주요 강점\n"
+        for s in feedback_data['strengths']:
+            report += f"- {s}\n"
+        report += "\n"
+        
+    # 3. Weaknesses (Categorized)
+    if 'weaknesses_categorized' in feedback_data:
+        report += "### ⚠️ 보완이 필요한 점\n"
+        w_cat = feedback_data['weaknesses_categorized']
+        for cat, items in w_cat.items():
+            report += f"**[{cat}]**\n"
+            for item in items:
+                report += f"- {item}\n"
+        report += "\n"
+        
+    # 4. Missing Elements
+    if 'missing_elements' in feedback_data:
+        report += "### 🔍 누락된 요소\n"
+        for m in feedback_data['missing_elements']:
+            report += f"- {m}\n"
+        report += "\n"
+        
+    return report if report else str(feedback_data)
+
+# (Stage 5 logic below...)
 elif st.session_state.stage == 5:
     st.header("🏆 최종 학습 성찰 리포트")
     st.balloons()
@@ -419,17 +462,14 @@ elif st.session_state.stage == 5:
             st.rerun()
         st.stop()
 
-    # 실명 가져오기 (ID 대신 이름 우선 사용)
     student_name = report_data['session'].get('name', report_data['session'].get('studentId', 'N/A'))
-    st.markdown(f"""
-    ### 👨‍🏫 {student_name} 예비 교사님, 수고하셨습니다!
-    **{report_data['session'].get('pedagogyModel', 'N/A')}** 모형을 활용한 심층 성찰이 모두 완료되었습니다. 아래에서 전체 과정을 복기해 보세요.
-    """)
+    st.markdown(f"### 👨‍🏫 {student_name} 예비 교사님, 수고하셨습니다!")
     st.divider()
 
-    # 1. Feedback Summary: Firebase에서 가져온 피드백 데이터 출력
+    # 1. Feedback Summary: 포맷팅 함수 적용
     st.subheader("1️⃣ 수업 설계 피드백 (2단계)")
-    st.info(report_data.get('feedback', '기록 없음'))
+    formatted_feedback = format_feedback_report(report_data.get('feedback', '기록 없음'))
+    st.markdown(formatted_feedback) # info 대신 markdown으로 구조화된 텍스트 출력
 
     # 2. Stage 3/4 Dialogues in Tabs
     st.subheader("2️⃣ 상호작용 대화 기록 요약")
@@ -460,16 +500,19 @@ elif st.session_state.stage == 5:
     # 3. Download Functionality
     current_time_str = datetime.now().strftime('%Y-%m-%d %H:%M')
     full_text = f"=== 최종 학습 성찰 리포트 ===\n\n"
-    full_text += f"성함: {student_name}\n"
-    full_text += f"ID: {report_data['session'].get('studentId', 'N/A')}\n"
+    full_text += f"성함: {student_name}\nID: {report_data['session'].get('studentId', 'N/A')}\n"
     full_text += f"날짜: {current_time_str}\n"
     full_text += f"교수학습모형: {report_data['session'].get('pedagogyModel', 'N/A')}\n\n"
-    full_text += f"[2단계: AI 피드백]\n{report_data.get('feedback', '기록 없음')}\n\n"
-    full_text += f"[3단계: 학생 주도 대화 기록]\n"
+    
+    # 다운로드 텍스트도 정제된 형식으로 저장 (마크다운 기호 제거 등 깔끔하게)
+    clean_feedback = formatted_feedback.replace("### ", "").replace("**", "")
+    full_text += f"[1단계: AI 피드백]\n{clean_feedback}\n\n"
+    
+    full_text += f"[2단계: 학생 주도 대화 기록]\n"
     for m in s3_msgs:
         role_label = "나" if m['role'] == 'user' else "AI"
         full_text += f"{role_label}: {m['content']}\n"
-    full_text += f"\n[4단계: 심층 성찰 대화 기록]\n"
+    full_text += f"\n[3단계: 심층 성찰 대화 기록]\n"
     lt = ""
     for m in s4_msgs:
         if m['topic'] != lt:
@@ -492,6 +535,7 @@ elif st.session_state.stage == 5:
     if st.button("처음으로 돌아가기 (로그아웃)", use_container_width=True):
         st.session_state.clear()
         st.rerun()
+
 
 
 
