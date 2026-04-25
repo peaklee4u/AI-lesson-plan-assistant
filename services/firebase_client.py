@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any, List
 from google.cloud import firestore as google_firestore
 
 class FirebaseService:
+    VERSION = 5
     def __init__(self, service_account_info: Optional[Dict[str, Any]] = None):
         """
         Initializes Firebase Admin SDK and Firestore Client.
