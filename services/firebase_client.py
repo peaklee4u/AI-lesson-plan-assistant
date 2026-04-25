@@ -60,9 +60,12 @@ class FirebaseService:
                 project_id = conf.get("project_id")
         
         if project_id:
-            self.db = firestore.client(project=project_id)
+            # Crucial: Set environment variable so Firestore SDK can find it
+            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+            self.db = firestore.client()
         else:
             self.db = firestore.client()
+
 
 
 
