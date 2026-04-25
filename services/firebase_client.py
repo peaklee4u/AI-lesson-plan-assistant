@@ -50,7 +50,20 @@ class FirebaseService:
             
             firebase_admin.initialize_app(cred)
         
-        self.db = firestore.client()
+        # Explicitly set project ID for Firestore in cloud environments
+        project_id = None
+        if service_account_info and "project_id" in service_account_info:
+            project_id = service_account_info["project_id"]
+        elif os.path.exists("firebase-key.json"):
+            with open("firebase-key.json") as f:
+                conf = json.load(f)
+                project_id = conf.get("project_id")
+        
+        if project_id:
+            self.db = firestore.client(project=project_id)
+        else:
+            self.db = firestore.client()
+
 
 
 
