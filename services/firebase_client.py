@@ -5,10 +5,12 @@ import uuid
 import os
 from typing import Optional, Dict, Any, List
 
+from google.cloud import firestore as google_firestore
+
 class FirebaseService:
     def __init__(self, service_account_info: Optional[Dict[str, Any]] = None):
         """
-        Initializes Firebase Admin SDK for Firestore only.
+        Initializes Firebase Admin SDK and Firestore Client.
         """
         # 1. Clean start: Delete existing app to avoid stale config in Streamlit
         try:
@@ -40,15 +42,18 @@ class FirebaseService:
                 project_id = conf.get("project_id")
             cred = credentials.Certificate("firebase-key.json")
 
-        # 3. Initialize with explicit project ID
+        # 3. Initialize Firebase Admin and then Direct Firestore Client
         if cred:
             firebase_admin.initialize_app(cred, {"projectId": project_id})
-            if project_id:
-                os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+            # IMPORTANT: Use the raw Client from google-cloud-firestore to be immune to env var issues
+            self.db = google_firestore.Client(
+                project=project_id,
+                credentials=cred.get_credential()
+            )
         else:
             firebase_admin.initialize_app()
-        
-        self.db = firestore.client()
+            self.db = google_firestore.Client()
+
 
 
 
