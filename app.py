@@ -328,6 +328,7 @@ elif st.session_state.stage == 4:
                 if st.button("다음 쟁점으로 넘어가기", type="primary", use_container_width=True):
                     st.session_state.current_topic_index += 1
                     st.session_state.topic_is_finished = False
+                    st.session_state.topic_turn_count = 0 # 턴 수 초기화 추가
                     st.session_state.messages_stage4 = []
                     st.rerun()
             with col2:
@@ -402,7 +403,7 @@ elif st.session_state.stage == 4:
 
 
 # --- Stage 5: Summary & Exit ---
-elif st.session_state.current_stage == 5:
+elif st.session_state.stage == 5:
     st.header("🏆 최종 학습 성찰 리포트")
     st.balloons()
     
