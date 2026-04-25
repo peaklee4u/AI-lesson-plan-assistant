@@ -16,6 +16,10 @@ class FirebaseService:
         except ValueError:
             # Not initialized, proceed with initialization
             if service_account_info:
+                # Security Fix: Ensure private_key format is correct for Firebase
+                if "private_key" in service_account_info:
+                    service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+                
                 cred = credentials.Certificate(service_account_info)
             elif os.path.exists("firebase-key.json"):
                 cred = credentials.Certificate("firebase-key.json")
@@ -31,6 +35,7 @@ class FirebaseService:
             firebase_admin.initialize_app(cred)
         
         self.db = firestore.client()
+
 
 
     def create_session(self, student_id: str, name: str, pedagogy_model: str) -> str:
