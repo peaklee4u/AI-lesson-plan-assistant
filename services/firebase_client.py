@@ -137,20 +137,32 @@ class FirebaseService:
         
         session_data = doc.to_dict()
         
-        # 2. Get all messages ordered by timestamp
+        # 2. Get the latest feedback
+        feedback_ref = doc_ref.collection("feedback").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).stream()
+        feedback_content = "기록 없음"
+        for fb in feedback_ref:
+            feedback_content = fb.to_dict().get("feedback", "기록 없음")
+
+        # 3. Get all messages ordered by timestamp
         messages_ref = doc_ref.collection("messages").order_by("timestamp").stream()
         messages = []
         for msg in messages_ref:
             m = msg.to_dict()
+            # Normalize role: assistant/ai -> ai, user/student -> user
+            raw_role = m.get("role", "").lower()
+            role = "ai" if raw_role in ["ai", "assistant"] else "user"
+            
             messages.append({
-                "role": m.get("role"),
+                "role": role,
                 "content": m.get("content"),
                 "stage": m.get("stage"),
-                "topic": m.get("topic", "")
+                "topic": m.get("currentTopicId", "")
             })
             
         return {
             "session": session_data,
+            "feedback": feedback_content,
             "messages": messages
         }
+
 
