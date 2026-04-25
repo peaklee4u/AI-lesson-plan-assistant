@@ -16,9 +16,21 @@ class FirebaseService:
         except ValueError:
             # Not initialized, proceed with initialization
             if service_account_info:
-                # Security Fix: Ensure private_key format is correct for Firebase
+                # Security Fix: Extra-aggressive cleaning for private_key
                 if "private_key" in service_account_info:
-                    service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+                    pk = service_account_info["private_key"]
+                    if isinstance(pk, str):
+                        # 1. Remove Any trailing/leading whitespace or quotes
+                        pk = pk.strip().strip("'").strip('"')
+                        # 2. Convert literal "\n" strings to real newlines
+                        pk = pk.replace("\\n", "\n")
+                        # 3. Ensure it starts and ends correctly
+                        if not pk.startswith("-----BEGIN PRIVATE KEY-----"):
+                            pk = "-----BEGIN PRIVATE KEY-----\n" + pk
+                        if not pk.endswith("-----END PRIVATE KEY-----"):
+                            pk = pk + "\n-----END PRIVATE KEY-----"
+                        
+                        service_account_info["private_key"] = pk
                 
                 cred = credentials.Certificate(service_account_info)
             elif os.path.exists("firebase-key.json"):
@@ -35,6 +47,7 @@ class FirebaseService:
             firebase_admin.initialize_app(cred)
         
         self.db = firestore.client()
+
 
 
 
