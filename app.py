@@ -19,25 +19,20 @@ else:
     api_key = os.getenv("GEMINI_API_KEY")
 
 # Initialize Services
-if 'firebase' not in st.session_state:
+if 'firebase' not in st.session_state or not hasattr(st.session_state.firebase, 'get_full_report'):
     service_account_info = None
-    
-    # 1. New Approach: Read entire JSON as a single string
     if "FIREBASE_SERVICE_ACCOUNT_JSON" in st.secrets:
         try:
             service_account_info = json.loads(st.secrets["FIREBASE_SERVICE_ACCOUNT_JSON"])
-            # Set project ID as early as possible
             if "project_id" in service_account_info:
                 os.environ["GOOGLE_CLOUD_PROJECT"] = service_account_info["project_id"]
         except Exception as e:
             st.error(f"Firebase JSON parsing error: {e}")
-
-    
-    # 2. Fallback to old approach if needed
     elif "firebase_service_account" in st.secrets:
         service_account_info = dict(st.secrets["firebase_service_account"])
     
     st.session_state.firebase = FirebaseService(service_account_info)
+
 
 
 if 'gemini' not in st.session_state:
