@@ -1,5 +1,6 @@
 streamlit
-google-genai
-firebase-admin
+google-generativeai
 python-dotenv
+firebase-admin
+google-cloud-firestore
 pdfplumber
