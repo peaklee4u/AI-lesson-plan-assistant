@@ -19,7 +19,12 @@ else:
     api_key = os.getenv("GEMINI_API_KEY")
 
 # Initialize Services
-if 'firebase' not in st.session_state or not hasattr(st.session_state.firebase, 'get_full_report'):
+# Health Check: if firebase object exists but is old (missing get_full_report), force re-init
+if 'firebase' in st.session_state:
+    if not hasattr(st.session_state.firebase, 'get_full_report'):
+        del st.session_state.firebase
+
+if 'firebase' not in st.session_state:
     service_account_info = None
     if "FIREBASE_SERVICE_ACCOUNT_JSON" in st.secrets:
         try:
@@ -32,6 +37,7 @@ if 'firebase' not in st.session_state or not hasattr(st.session_state.firebase, 
         service_account_info = dict(st.secrets["firebase_service_account"])
     
     st.session_state.firebase = FirebaseService(service_account_info)
+
 
 
 
