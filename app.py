@@ -26,8 +26,12 @@ if 'firebase' not in st.session_state:
     if "FIREBASE_SERVICE_ACCOUNT_JSON" in st.secrets:
         try:
             service_account_info = json.loads(st.secrets["FIREBASE_SERVICE_ACCOUNT_JSON"])
+            # Set project ID as early as possible
+            if "project_id" in service_account_info:
+                os.environ["GOOGLE_CLOUD_PROJECT"] = service_account_info["project_id"]
         except Exception as e:
             st.error(f"Firebase JSON parsing error: {e}")
+
     
     # 2. Fallback to old approach if needed
     elif "firebase_service_account" in st.secrets:
