@@ -10,46 +10,46 @@ class FirebaseService:
         """
         Initializes Firebase Admin SDK for Firestore only.
         """
+        # 1. Clean start: Delete existing app to avoid stale config in Streamlit
         try:
-            # Check if already initialized
-            firebase_admin.get_app()
+            existing_app = firebase_admin.get_app()
+            firebase_admin.delete_app(existing_app)
         except ValueError:
-            # Not initialized, proceed with initialization
-            if service_account_info:
-                # Security Fix: Extra-aggressive cleaning for private_key
-                if "private_key" in service_account_info:
-                    pk = service_account_info["private_key"]
-                    if isinstance(pk, str):
-                        pk = pk.strip()
-                        pk = pk.replace("\\n", "\n")
-                        pk = pk.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").strip()
-                        pk = "-----BEGIN PRIVATE KEY-----\n" + pk + "\n-----END PRIVATE KEY-----\n"
-                        service_account_info["private_key"] = pk
-                
-                cred = credentials.Certificate(service_account_info)
-                # Set project_id explicitly in app options
-                project_id = service_account_info.get("project_id")
-                firebase_admin.initialize_app(cred, {"projectId": project_id})
-            elif os.path.exists("firebase-key.json"):
-                with open("firebase-key.json") as f:
-                    conf = json.load(f)
-                    project_id = conf.get("project_id")
-                cred = credentials.Certificate("firebase-key.json")
-                firebase_admin.initialize_app(cred, {"projectId": project_id})
-            else:
-                firebase_admin.initialize_app()
-        
-        # Finally, ensure GOOGLE_CLOUD_PROJECT is also set as a backup
-        try:
-            app = firebase_admin.get_app()
-            # If we don't have project_id yet, try to get it from the app's credential
-            # but usually we have it from secrets
-            if service_account_info and "project_id" in service_account_info:
-                os.environ["GOOGLE_CLOUD_PROJECT"] = service_account_info["project_id"]
-        except:
             pass
+
+        # 2. Extract configuration
+        project_id = None
+        cred = None
+
+        if service_account_info:
+            # Aggressive cleaning for private_key
+            if "private_key" in service_account_info:
+                pk = service_account_info["private_key"]
+                if isinstance(pk, str):
+                    pk = pk.strip().replace("\\n", "\n")
+                    pk = pk.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").strip()
+                    pk = "-----BEGIN PRIVATE KEY-----\n" + pk + "\n-----END PRIVATE KEY-----\n"
+                    service_account_info["private_key"] = pk
             
+            project_id = service_account_info.get("project_id")
+            cred = credentials.Certificate(service_account_info)
+        elif os.path.exists("firebase-key.json"):
+            import json
+            with open("firebase-key.json") as f:
+                conf = json.load(f)
+                project_id = conf.get("project_id")
+            cred = credentials.Certificate("firebase-key.json")
+
+        # 3. Initialize with explicit project ID
+        if cred:
+            firebase_admin.initialize_app(cred, {"projectId": project_id})
+            if project_id:
+                os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+        else:
+            firebase_admin.initialize_app()
+        
         self.db = firestore.client()
+
 
 
 
