@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import json
+from datetime import datetime
 from dotenv import load_dotenv
 from google.genai import types
 from services.firebase_client import FirebaseService
@@ -418,62 +419,69 @@ elif st.session_state.stage == 5:
             st.rerun()
         st.stop()
 
+    # 실명 가져오기 (ID 대신 이름 우선 사용)
+    student_name = report_data['session'].get('name', report_data['session'].get('studentId', 'N/A'))
     st.markdown(f"""
-    ### 👨‍🏫 {report_data['session'].get('studentId', 'N/A')} 예비 교사님, 수고하셨습니다!
+    ### 👨‍🏫 {student_name} 예비 교사님, 수고하셨습니다!
     **{report_data['session'].get('pedagogyModel', 'N/A')}** 모형을 활용한 심층 성찰이 모두 완료되었습니다. 아래에서 전체 과정을 복기해 보세요.
     """)
     st.divider()
 
-    # 1. Feedback Summary
+    # 1. Feedback Summary: Firebase에서 가져온 피드백 데이터 출력
     st.subheader("1️⃣ 수업 설계 피드백 (2단계)")
-    feedback_msg = next((m['content'] for m in report_data['messages'] if m['stage'] == 2 and m['role'] == 'assistant'), "기록 없음")
-    st.info(feedback_msg)
+    st.info(report_data.get('feedback', '기록 없음'))
 
-    # 2. Stage 3/4 Dialogues in Tabs for cleaner look
+    # 2. Stage 3/4 Dialogues in Tabs
     st.subheader("2️⃣ 상호작용 대화 기록 요약")
     tab1, tab2 = st.tabs(["📝 3단계: 학생 주도 대화", "🧠 4단계: AI 주도 심층 성찰"])
     
     with tab1:
         s3_msgs = [m for m in report_data['messages'] if m['stage'] == 3]
+        if not s3_msgs:
+            st.caption("3단계 기록이 없습니다.")
         for m in s3_msgs:
-            role = "👤 나" if m['role'] == 'user' else "🤖 AI"
-            st.markdown(f"**{role}**: {m['content']}")
+            role_icon = "👤 나" if m['role'] == 'user' else "🤖 AI"
+            st.markdown(f"**{role_icon}**: {m['content']}")
     
     with tab2:
         s4_msgs = [m for m in report_data['messages'] if m['stage'] == 4]
+        if not s4_msgs:
+            st.caption("4단계 기록이 없습니다.")
         last_topic = ""
         for m in s4_msgs:
             if m['topic'] != last_topic:
                 st.markdown(f"--- **쟁점: {m['topic']}** ---")
                 last_topic = m['topic']
-            role = "👤 나" if m['role'] == 'user' else "🤖 AI"
-            st.markdown(f"**{role}**: {m['content']}")
+            role_icon = "👤 나" if m['role'] == 'user' else "🤖 AI"
+            st.markdown(f"**{role_icon}**: {m['content']}")
 
     st.divider()
 
     # 3. Download Functionality
+    current_time_str = datetime.now().strftime('%Y-%m-%d %H:%M')
     full_text = f"=== 최종 학습 성찰 리포트 ===\n\n"
+    full_text += f"성함: {student_name}\n"
     full_text += f"ID: {report_data['session'].get('studentId', 'N/A')}\n"
-    full_text += f"날짜: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+    full_text += f"날짜: {current_time_str}\n"
     full_text += f"교수학습모형: {report_data['session'].get('pedagogyModel', 'N/A')}\n\n"
-    full_text += f"[2단계: AI 피드백]\n{feedback_msg}\n\n"
+    full_text += f"[2단계: AI 피드백]\n{report_data.get('feedback', '기록 없음')}\n\n"
     full_text += f"[3단계: 학생 주도 대화 기록]\n"
     for m in s3_msgs:
-        role = "나" if m['role'] == 'user' else "AI"
-        full_text += f"{role}: {m['content']}\n"
+        role_label = "나" if m['role'] == 'user' else "AI"
+        full_text += f"{role_label}: {m['content']}\n"
     full_text += f"\n[4단계: 심층 성찰 대화 기록]\n"
     lt = ""
     for m in s4_msgs:
         if m['topic'] != lt:
             full_text += f"\n[쟁점: {m['topic']}]\n"
             lt = m['topic']
-        role = "나" if m['role'] == 'user' else "AI"
-        full_text += f"{role}: {m['content']}\n"
+        role_label = "나" if m['role'] == 'user' else "AI"
+        full_text += f"{role_label}: {m['content']}\n"
 
     st.download_button(
         label="📥 전체 성찰 기록 다운로드 (.txt)",
         data=full_text,
-        file_name=f"reflection_report_{st.session_state.session_id}.txt",
+        file_name=f"reflection_report_{student_name}.txt",
         mime="text/plain",
         use_container_width=True,
         type="primary"
@@ -481,9 +489,10 @@ elif st.session_state.stage == 5:
     
     st.caption("작성하신 내용은 교육 연구를 위한 자료로 활용될 수 있습니다. 성실한 참여 감사드립니다.")
     
-    if st.button("처음으로 돌아가기 (데이터 안전 저장 확인)", use_container_width=True):
+    if st.button("처음으로 돌아가기 (로그아웃)", use_container_width=True):
         st.session_state.clear()
         st.rerun()
+
 
 
 
