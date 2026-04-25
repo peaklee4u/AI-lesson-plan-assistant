@@ -20,51 +20,37 @@ class FirebaseService:
                 if "private_key" in service_account_info:
                     pk = service_account_info["private_key"]
                     if isinstance(pk, str):
-                        # 1. First, strip ALL white spaces and hidden characters
                         pk = pk.strip()
-                        
-                        # 2. Normalize escaped newlines
                         pk = pk.replace("\\n", "\n")
-                        
-                        # 3. Aggressive cleanup of tags to prevent duplication
-                        # Remove existing tags first to re-add them cleanly
                         pk = pk.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").strip()
-                        
-                        # 4. Re-construct the standard PEM format
                         pk = "-----BEGIN PRIVATE KEY-----\n" + pk + "\n-----END PRIVATE KEY-----\n"
-                        
                         service_account_info["private_key"] = pk
                 
                 cred = credentials.Certificate(service_account_info)
-
+                # Set project_id explicitly in app options
+                project_id = service_account_info.get("project_id")
+                firebase_admin.initialize_app(cred, {"projectId": project_id})
             elif os.path.exists("firebase-key.json"):
+                with open("firebase-key.json") as f:
+                    conf = json.load(f)
+                    project_id = conf.get("project_id")
                 cred = credentials.Certificate("firebase-key.json")
+                firebase_admin.initialize_app(cred, {"projectId": project_id})
             else:
-                try:
-                    cred = credentials.ApplicationDefault()
-                except:
-                    # Last resort fallback (usually for cloud environments)
-                    firebase_admin.initialize_app()
-                    self.db = firestore.client()
-                    return
+                firebase_admin.initialize_app()
+        
+        # Finally, ensure GOOGLE_CLOUD_PROJECT is also set as a backup
+        try:
+            app = firebase_admin.get_app()
+            # If we don't have project_id yet, try to get it from the app's credential
+            # but usually we have it from secrets
+            if service_account_info and "project_id" in service_account_info:
+                os.environ["GOOGLE_CLOUD_PROJECT"] = service_account_info["project_id"]
+        except:
+            pass
             
-            firebase_admin.initialize_app(cred)
-        
-        # Explicitly set project ID for Firestore in cloud environments
-        project_id = None
-        if service_account_info and "project_id" in service_account_info:
-            project_id = service_account_info["project_id"]
-        elif os.path.exists("firebase-key.json"):
-            with open("firebase-key.json") as f:
-                conf = json.load(f)
-                project_id = conf.get("project_id")
-        
-        if project_id:
-            # Crucial: Set environment variable so Firestore SDK can find it
-            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-            self.db = firestore.client()
-        else:
-            self.db = firestore.client()
+        self.db = firestore.client()
+
 
 
 
