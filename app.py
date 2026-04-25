@@ -20,9 +20,9 @@ else:
     api_key = os.getenv("GEMINI_API_KEY")
 
 # Initialize Services
-# Health Check: if firebase object exists but is old (missing get_full_report), force re-init
+# Health Check: force re-init if the object is outdated (VERSION < 5)
 if 'firebase' in st.session_state:
-    if not hasattr(st.session_state.firebase, 'get_full_report'):
+    if not hasattr(st.session_state.firebase, 'VERSION') or st.session_state.firebase.VERSION < 5:
         del st.session_state.firebase
 
 if 'firebase' not in st.session_state:
