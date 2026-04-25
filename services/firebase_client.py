@@ -124,3 +124,33 @@ class FirebaseService:
             topic['status'] = 'pending'
             batch.set(topic_ref, topic)
         batch.commit()
+
+    def get_full_report(self, session_id: str) -> Dict[str, Any]:
+        """
+        Retrieves all data for a session to generate a final report.
+        """
+        # 1. Get session info
+        doc_ref = self.db.collection("sessions").document(session_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return {}
+        
+        session_data = doc.to_dict()
+        
+        # 2. Get all messages ordered by timestamp
+        messages_ref = doc_ref.collection("messages").order_by("timestamp").stream()
+        messages = []
+        for msg in messages_ref:
+            m = msg.to_dict()
+            messages.append({
+                "role": m.get("role"),
+                "content": m.get("content"),
+                "stage": m.get("stage"),
+                "topic": m.get("topic", "")
+            })
+            
+        return {
+            "session": session_data,
+            "messages": messages
+        }
+
