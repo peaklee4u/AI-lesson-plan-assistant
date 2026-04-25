@@ -1,5 +1,5 @@
 streamlit
-google-generativeai
+google-genai
 python-dotenv
 firebase-admin
 google-cloud-firestore
