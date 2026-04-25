@@ -402,17 +402,86 @@ elif st.session_state.stage == 4:
 
 
 # --- Stage 5: Summary & Exit ---
-elif st.session_state.stage == 5:
-    st.header("🏁 모든 과정을 마쳤습니다")
+elif st.session_state.current_stage == 5:
+    st.header("🏆 최종 학습 성찰 리포트")
     st.balloons()
-    st.success("작성하신 상호작용 데이터는 연구용으로 소중하게 활용될 예정입니다. 감사합니다.")
-    st.markdown("""
-    ### 다음 단계:
-    1. AI와 나눈 대화를 바탕으로 수업지도안을 수정해 보세요.
-    2. 수정된 지도안은 별도로 제출해 주시기 바랍니다.
+    
+    with st.spinner("리포트를 생성하고 있습니다..."):
+        report_data = st.session_state.firebase.get_full_report(st.session_state.session_id)
+        
+    if not report_data:
+        st.error("데이터를 가져오는 중 오류가 발생했습니다.")
+        if st.button("홈으로 돌아가기"):
+            st.session_state.clear()
+            st.rerun()
+        st.stop()
+
+    st.markdown(f"""
+    ### 👨‍🏫 {report_data['session'].get('studentId', 'N/A')} 예비 교사님, 수고하셨습니다!
+    **{report_data['session'].get('pedagogyModel', 'N/A')}** 모형을 활용한 심층 성찰이 모두 완료되었습니다. 아래에서 전체 과정을 복기해 보세요.
     """)
-    if st.button("처음으로 돌아가기"):
+    st.divider()
+
+    # 1. Feedback Summary
+    st.subheader("1️⃣ 수업 설계 피드백 (2단계)")
+    feedback_msg = next((m['content'] for m in report_data['messages'] if m['stage'] == 2 and m['role'] == 'assistant'), "기록 없음")
+    st.info(feedback_msg)
+
+    # 2. Stage 3/4 Dialogues in Tabs for cleaner look
+    st.subheader("2️⃣ 상호작용 대화 기록 요약")
+    tab1, tab2 = st.tabs(["📝 3단계: 학생 주도 대화", "🧠 4단계: AI 주도 심층 성찰"])
+    
+    with tab1:
+        s3_msgs = [m for m in report_data['messages'] if m['stage'] == 3]
+        for m in s3_msgs:
+            role = "👤 나" if m['role'] == 'user' else "🤖 AI"
+            st.markdown(f"**{role}**: {m['content']}")
+    
+    with tab2:
+        s4_msgs = [m for m in report_data['messages'] if m['stage'] == 4]
+        last_topic = ""
+        for m in s4_msgs:
+            if m['topic'] != last_topic:
+                st.markdown(f"--- **쟁점: {m['topic']}** ---")
+                last_topic = m['topic']
+            role = "👤 나" if m['role'] == 'user' else "🤖 AI"
+            st.markdown(f"**{role}**: {m['content']}")
+
+    st.divider()
+
+    # 3. Download Functionality
+    full_text = f"=== 최종 학습 성찰 리포트 ===\n\n"
+    full_text += f"ID: {report_data['session'].get('studentId', 'N/A')}\n"
+    full_text += f"날짜: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+    full_text += f"교수학습모형: {report_data['session'].get('pedagogyModel', 'N/A')}\n\n"
+    full_text += f"[2단계: AI 피드백]\n{feedback_msg}\n\n"
+    full_text += f"[3단계: 학생 주도 대화 기록]\n"
+    for m in s3_msgs:
+        role = "나" if m['role'] == 'user' else "AI"
+        full_text += f"{role}: {m['content']}\n"
+    full_text += f"\n[4단계: 심층 성찰 대화 기록]\n"
+    lt = ""
+    for m in s4_msgs:
+        if m['topic'] != lt:
+            full_text += f"\n[쟁점: {m['topic']}]\n"
+            lt = m['topic']
+        role = "나" if m['role'] == 'user' else "AI"
+        full_text += f"{role}: {m['content']}\n"
+
+    st.download_button(
+        label="📥 전체 성찰 기록 다운로드 (.txt)",
+        data=full_text,
+        file_name=f"reflection_report_{st.session_state.session_id}.txt",
+        mime="text/plain",
+        use_container_width=True,
+        type="primary"
+    )
+    
+    st.caption("작성하신 내용은 교육 연구를 위한 자료로 활용될 수 있습니다. 성실한 참여 감사드립니다.")
+    
+    if st.button("처음으로 돌아가기 (데이터 안전 저장 확인)", use_container_width=True):
         st.session_state.clear()
         st.rerun()
+
 
 
