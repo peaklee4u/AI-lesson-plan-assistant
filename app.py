@@ -66,6 +66,48 @@ def is_multi_question(text: str) -> bool:
         return True
     return False
 
+def format_feedback_report(feedback_data):
+    """Formats raw feedback dictionary into a beautiful report string."""
+    if isinstance(feedback_data, str):
+        try:
+            # If it's a string from json.dumps, parse it back
+            import json
+            feedback_data = json.loads(feedback_data)
+        except:
+            return feedback_data # Return as is if not JSON
+
+    report = ""
+    
+    # 1. Overall Summary
+    if 'overall_summary' in feedback_data:
+        report += f"### 💡 종합 요약\n{feedback_data['overall_summary']}\n\n"
+    
+    # 2. Strengths
+    if 'strengths' in feedback_data:
+        report += "### ✅ 주요 강점\n"
+        for s in feedback_data['strengths']:
+            report += f"- {s}\n"
+        report += "\n"
+        
+    # 3. Weaknesses (Categorized)
+    if 'weaknesses_categorized' in feedback_data:
+        report += "### ⚠️ 보완이 필요한 점\n"
+        w_cat = feedback_data['weaknesses_categorized']
+        for cat, items in w_cat.items():
+            report += f"**[{cat}]**\n"
+            for item in items:
+                report += f"- {item}\n"
+        report += "\n"
+        
+    # 4. Missing Elements
+    if 'missing_elements' in feedback_data:
+        report += "### 🔍 누락된 요소\n"
+        for m in feedback_data['missing_elements']:
+            report += f"- {m}\n"
+        report += "\n"
+        
+    return report if report else str(feedback_data)
+
 
 # --- UI Header ---
 st.title("🧪 생성형 AI 기반 수업설계 Assistant")
@@ -405,49 +447,7 @@ elif st.session_state.stage == 4:
 
 
 # --- Stage 5: Summary & Exit ---
-def format_feedback_report(feedback_data):
-    """Formats raw feedback dictionary into a beautiful report string."""
-    if isinstance(feedback_data, str):
-        try:
-            # If it's a string from json.dumps, parse it back
-            import json
-            feedback_data = json.loads(feedback_data)
-        except:
-            return feedback_data # Return as is if not JSON
-
-    report = ""
-    
-    # 1. Overall Summary
-    if 'overall_summary' in feedback_data:
-        report += f"### 💡 종합 요약\n{feedback_data['overall_summary']}\n\n"
-    
-    # 2. Strengths
-    if 'strengths' in feedback_data:
-        report += "### ✅ 주요 강점\n"
-        for s in feedback_data['strengths']:
-            report += f"- {s}\n"
-        report += "\n"
-        
-    # 3. Weaknesses (Categorized)
-    if 'weaknesses_categorized' in feedback_data:
-        report += "### ⚠️ 보완이 필요한 점\n"
-        w_cat = feedback_data['weaknesses_categorized']
-        for cat, items in w_cat.items():
-            report += f"**[{cat}]**\n"
-            for item in items:
-                report += f"- {item}\n"
-        report += "\n"
-        
-    # 4. Missing Elements
-    if 'missing_elements' in feedback_data:
-        report += "### 🔍 누락된 요소\n"
-        for m in feedback_data['missing_elements']:
-            report += f"- {m}\n"
-        report += "\n"
-        
-    return report if report else str(feedback_data)
-
-# (Stage 5 logic below...)
+# --- Stage 5: Summary & Exit ---
 elif st.session_state.stage == 5:
     st.header("🏆 최종 학습 성찰 리포트")
     st.balloons()
