@@ -125,7 +125,7 @@ if st.session_state.stage == 1:
     with col2:
         pedagogy_models = [
             "발견학습", "3단계 순환학습", "5E", "POE", "발생학습", 
-            "개념변화모형", "STAD", "Jigsaw1", "Jigsaw2", "GI", "기타"
+            "개념변화모형", "STAD", "Jigsaw1", "Jigsaw2", "GI", "특수교육", "기타"
         ]
         selected_model = st.selectbox("교수학습모형 선택", pedagogy_models)
         
@@ -156,7 +156,8 @@ if st.session_state.stage == 1:
                     "STAD": "STAD.md",
                     "Jigsaw1": "Jigsaw1.md",
                     "Jigsaw2": "Jigsaw2.md",
-                    "GI": "GI.md"
+                    "GI": "GI.md",
+                    "특수교육": "Special.md"		   
                 }
                 
                 model_filename = model_map.get(selected_model)
