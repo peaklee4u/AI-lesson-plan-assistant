@@ -1,0 +1,8 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /lesson_plans/{sessionId}/{allPaths=**} {
+      allow read, write: if true; // 연구용 데이터를 위해 개방 (운영 시 세션 검증 추가 권장)
+    }
+  }
+}

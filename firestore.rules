@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /sessions/{sessionId} {
+      // 연구를 위해 세션ID를 아는 경우 읽기 허용, 생성은 누구나 가능
+      allow create: if true;
+      allow read, update: if true; // 실제 운영 환경에서는 request.auth != null 등으로 강화 권장
+      
+      match /{subcollection}/{docId} {
+        allow read, write: if true;
+      }
+    }
+  }
+}

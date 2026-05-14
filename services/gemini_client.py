@@ -50,28 +50,29 @@ class GeminiService:
         instruction = self.load_prompt("stage2_feedback.txt")
         combined_prompt = f"[SYSTEM INSTRUCTION]\n{instruction}\n\n[TASK]\n다음 1차 수업지도안을 분석하세요:\n\n{plan_text}"
         
-        response = self.client.models.generate_content(
-            model=self.pro_model,
-            contents=[combined_prompt],
-            config=types.GenerateContentConfig(
-                cached_content=cache_name,
-                response_mime_type="application/json",
-                temperature=0.2
-            )
-        )
-        
-        usage = response.usage_metadata
-        # Usage metadata for Firestore logging
-        self.last_usage = {
-            "input_tokens": usage.prompt_token_count,
-            "output_tokens": usage.candidates_token_count,
-            "cached_tokens": usage.cached_content_token_count
-        }
-        
         try:
+            response = self.client.models.generate_content(
+                model=self.pro_model,
+                contents=[combined_prompt],
+                config=types.GenerateContentConfig(
+                    cached_content=cache_name,
+                    response_mime_type="application/json",
+                    temperature=0.2
+                )
+            )
+            
+            usage = response.usage_metadata
+            # Usage metadata for Firestore logging
+            self.last_usage = {
+                "input_tokens": usage.prompt_token_count,
+                "output_tokens": usage.candidates_token_count,
+                "cached_tokens": usage.cached_content_token_count
+            }
             return json.loads(response.text)
-        except:
-            return {"error": "Failed to parse AI response", "raw": response.text}
+        except Exception as e:
+            error_msg = str(e)
+            print(f"DEBUG: Stage 2 Gemini Error: {error_msg}")
+            return {"error": f"AI 분석 중 오류가 발생했습니다: {error_msg}", "raw": error_msg}
 
     def chat_stage3(self, message: str, history: List[types.Content], cache_name: str) -> str:
         """
@@ -84,23 +85,28 @@ class GeminiService:
         # Build contents
         contents = history + [types.Content(role="user", parts=[types.Part(text=combined_message)])]
         
-        response = self.client.models.generate_content(
-            model=self.flash_model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                cached_content=cache_name,
-                temperature=0.7
+        try:
+            response = self.client.models.generate_content(
+                model=self.flash_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    cached_content=cache_name,
+                    temperature=0.7
+                )
             )
-        )
-        
-        usage = response.usage_metadata
-        self.last_usage = {
-            "input_tokens": usage.prompt_token_count,
-            "output_tokens": usage.candidates_token_count,
-            "cached_tokens": usage.cached_content_token_count
-        }
-        
-        return response.text
+            
+            usage = response.usage_metadata
+            self.last_usage = {
+                "input_tokens": usage.prompt_token_count,
+                "output_tokens": usage.candidates_token_count,
+                "cached_tokens": usage.cached_content_token_count
+            }
+            
+            return response.text
+        except Exception as e:
+            error_msg = str(e)
+            print(f"DEBUG: Stage 3 Gemini Error: {error_msg}")
+            return f"죄송합니다. 대화 중 오류가 발생했습니다: {error_msg}"
 
     def generate_topic_queue(self, plan_text: str, feedback: str, logs: str, cache_name: str) -> Dict[str, Any]:
         """
@@ -109,16 +115,21 @@ class GeminiService:
         instruction = self.load_prompt("stage4_topic_queue.txt")
         combined_prompt = f"[SYSTEM INSTRUCTION]\n{instruction}\n\n[CONTEXT]\n[1차 지도안]\n{plan_text}\n\n[2단계 피드백]\n{feedback}\n\n[3단계 대화 로그]\n{logs}"
         
-        response = self.client.models.generate_content(
-            model=self.flash_model,
-            contents=[combined_prompt],
-            config=types.GenerateContentConfig(
-                cached_content=cache_name,
-                response_mime_type="application/json",
-                temperature=0.1
+        try:
+            response = self.client.models.generate_content(
+                model=self.flash_model,
+                contents=[combined_prompt],
+                config=types.GenerateContentConfig(
+                    cached_content=cache_name,
+                    response_mime_type="application/json",
+                    temperature=0.1
+                )
             )
-        )
-        return json.loads(response.text)
+            return json.loads(response.text)
+        except Exception as e:
+            error_msg = str(e)
+            print(f"DEBUG: Stage 4 Topic Queue Error: {error_msg}")
+            return {"untreated_elements": [{"element": "분석 오류", "rationale": f"쟁점을 추출하는 중 오류가 발생했습니다: {error_msg}"}]}
 
     def socratic_chat_stage4(self, message: str, history: List[types.Content], cache_name: str) -> Dict[str, Any]:
         """
@@ -133,32 +144,40 @@ class GeminiService:
         
         contents = history + [types.Content(role="user", parts=[types.Part(text=combined_message)])]
         
-        response = self.client.models.generate_content(
-            model=self.flash_model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                cached_content=cache_name,
-                response_mime_type="application/json",
-                # Note: Defining a specific schema helps ensure is_finished is always present
-                response_schema={
-                    "type": "object",
-                    "properties": {
-                        "question": {"type": "string"},
-                        "is_finished": {"type": "boolean"},
-                        "pedagogical_rationale": {"type": "string"}
+        try:
+            response = self.client.models.generate_content(
+                model=self.flash_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    cached_content=cache_name,
+                    response_mime_type="application/json",
+                    # Note: Defining a specific schema helps ensure is_finished is always present
+                    response_schema={
+                        "type": "object",
+                        "properties": {
+                            "question": {"type": "string"},
+                            "is_finished": {"type": "boolean"},
+                            "pedagogical_rationale": {"type": "string"}
+                        },
+                        "required": ["question", "is_finished"]
                     },
-                    "required": ["question", "is_finished"]
-                },
-                temperature=0.8
+                    temperature=0.8
+                )
             )
-        )
-        
-        usage = response.usage_metadata
-        self.last_usage = {
-            "input_tokens": usage.prompt_token_count,
-            "output_tokens": usage.candidates_token_count,
-            "cached_tokens": usage.cached_content_token_count
-        }
-        
-        return json.loads(response.text)
-
+            
+            usage = response.usage_metadata
+            self.last_usage = {
+                "input_tokens": usage.prompt_token_count,
+                "output_tokens": usage.candidates_token_count,
+                "cached_tokens": usage.cached_content_token_count
+            }
+            
+            return json.loads(response.text)
+        except Exception as e:
+            error_msg = str(e)
+            print(f"DEBUG: Stage 4 Socratic Error: {error_msg}")
+            return {
+                "question": f"시스템 오류가 발생했습니다: {error_msg}",
+                "is_finished": True,
+                "pedagogical_rationale": "Error handling"
+            }

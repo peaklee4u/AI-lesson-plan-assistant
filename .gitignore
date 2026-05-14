@@ -1,0 +1,6 @@
+.env
+firebase-key.json
+__pycache__/
+*.pyc
+.streamlit/
+scratch/

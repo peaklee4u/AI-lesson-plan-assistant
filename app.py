@@ -125,7 +125,7 @@ if st.session_state.stage == 1:
     with col2:
         pedagogy_models = [
             "발견학습", "3단계 순환학습", "5E", "POE", "발생학습", 
-            "개념변화모형", "STAD", "Jigsaw1", "Jigsaw2", "GI", "기타"
+            "개념변화모형", "STAD", "Jigsaw1", "Jigsaw2", "GI", "특수교육", "기타"
         ]
         selected_model = st.selectbox("교수학습모형 선택", pedagogy_models)
         
@@ -148,15 +148,16 @@ if st.session_state.stage == 1:
                 # Filename mapping based on user input
                 model_map = {
                     "발견학습": "DiscoveryLearning.md",
-                    "3단계순환학습": "LearningCycle.md",
+                    "3단계 순환학습": "LearningCycle.md",
                     "5E": "5E.md",
                     "POE": "POE.md",
-                    "발생학습(생성학습)": "GenerativeLearning.md",
+                    "발생학습": "GenerativeLearning.md",
                     "개념변화모형": "ConceptualChange.md",
                     "STAD": "STAD.md",
                     "Jigsaw1": "Jigsaw1.md",
                     "Jigsaw2": "Jigsaw2.md",
-                    "GI": "GI.md"
+                    "GI": "GI.md",
+                    "특수교육": "Special.md"
                 }
                 
                 model_filename = model_map.get(selected_model)
@@ -338,7 +339,10 @@ elif st.session_state.stage == 4:
         
         # Initial Question from AI (if starting new topic)
         if not st.session_state.messages_stage4:
-            first_q = f"'{current_topic['element']}'에 대해 먼저 이야기를 나눠보고 싶습니다. {current_topic['rationale']}와 관련하여, {current_topic['element']}를 지도안에 어떻게 반영하고자 하셨는지 설명해 주실 수 있나요?"
+            first_q = current_topic.get('socratic_prompt_seed')
+            if not first_q:
+                first_q = f"'{current_topic['element']}'에 대해 먼저 이야기를 나눠보고 싶습니다. {current_topic['rationale']}와 관련하여, {current_topic['element']}를 지도안에 어떻게 반영하고자 하셨는지 설명해 주실 수 있나요?"
+            
             st.session_state.messages_stage4.append({"role": "assistant", "content": first_q})
             st.session_state.firebase.save_message(
                 st.session_state.session_id, "ai", 4, first_q, "system_seed", {}, current_topic['element']
@@ -348,16 +352,6 @@ elif st.session_state.stage == 4:
         for msg in st.session_state.messages_stage4:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
-
-        # If it's the start of a topic, AI asks the first question
-        if st.session_state.topic_turn_count == 0 and not st.session_state.messages_stage4:
-            first_q = current_topic['socratic_prompt_seed']
-            with st.chat_message("assistant"):
-                st.markdown(first_q)
-            st.session_state.messages_stage4.append({"role": "assistant", "content": first_q})
-            st.session_state.firebase.save_message(
-                st.session_state.session_id, "ai", 4, first_q, "system_seed", {}, current_topic['element']
-            )
 
         # 쟁점별 대화 종료 여부를 세션 스테이트로 관리
         if "topic_is_finished" not in st.session_state:
@@ -389,10 +383,17 @@ elif st.session_state.stage == 4:
                 # 2. Gemini 호출
                 with st.chat_message("assistant"):
                     with st.spinner("생각 중..."):
-                        history = [
-                            types.Content(role="user" if m["role"] == "user" else "model", parts=[types.Part(text=m["content"])])
-                            for m in st.session_state.messages_stage4[:-1]
-                        ]
+                        # Gemini API rules: History must alternate user/model and START with user.
+                        # Since Stage 4 often starts with an AI question, we handle it.
+                        history = []
+                        for i, m in enumerate(st.session_state.messages_stage4[:-1]):
+                            # Skip the very first message if it's from the assistant to satisfy 'start with user' rule
+                            if i == 0 and m["role"] == "assistant":
+                                continue
+                            history.append(types.Content(
+                                role="user" if m["role"] == "user" else "model", 
+                                parts=[types.Part(text=m["content"])]
+                            ))
                         
                         # AI에게 현재 턴 정보를 주어 종료 판단을 돕게 함
                         context_msg = f"[현재 대화 턴: {st.session_state.topic_turn_count}회]\n{prompt}"
@@ -535,8 +536,3 @@ elif st.session_state.stage == 5:
     if st.button("처음으로 돌아가기 (로그아웃)", use_container_width=True):
         st.session_state.clear()
         st.rerun()
-
-
-
-
-
